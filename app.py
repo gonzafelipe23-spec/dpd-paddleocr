@@ -53,7 +53,14 @@ def clean_field(text, field):
 
 @app.get("/")
 def root():
-    return FileResponse("index.html")
+    return FileResponse(
+        "index.html",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 @app.get("/health")
 def health():

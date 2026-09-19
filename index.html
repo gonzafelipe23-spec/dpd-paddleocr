@@ -3,312 +3,286 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b2d4d">
-<title>DPD · Google Vision OCR</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>DPD · Google Vision OCR v26</title>
 <style>
-:root{
- --navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--text:#10243a;
- --muted:#65798e;--load:#e3a400;--ok:#1d9669;--err:#c43e3e
-}
+:root{--navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--ok:#16865d;--load:#e3a400;--err:#c43e3e}
 *{box-sizing:border-box}
-body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
-header{background:var(--navy);color:#fff;padding:18px 16px;position:sticky;top:0;z-index:3}
-header h1{margin:0;font-size:20px}
-header p{margin:4px 0 0;font-size:12px;opacity:.85}
-main{max-width:720px;margin:auto;padding:14px}
-.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:15px}
-.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.field{border:1px solid var(--line);background:#fff;color:var(--navy);border-radius:13px;padding:12px 8px;font-weight:800}
-.field.active{background:var(--navy);color:#fff}
+body{margin:0;font-family:Arial,Segoe UI,sans-serif;background:var(--bg);color:#10243a}
+header{background:var(--navy);color:white;padding:18px 16px}
+header h1{margin:0;font-size:21px}header p{margin:5px 0 0;font-size:13px;opacity:.9}
+main{max-width:680px;margin:auto;padding:14px}
+.card{background:white;border:1px solid var(--line);border-radius:20px;padding:15px}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.field{padding:12px;border-radius:12px;border:1px solid var(--line);background:white;font-weight:800;color:var(--navy)}
+.field.active{background:var(--navy);color:white}
 .field.loading{background:#fff3c4;color:#735400;border-color:#e3c251}
 .field.loaded{background:#e7f8f0;color:#0c6d4a;border-color:#87d1ae}
-.cameraBtn{display:block;width:100%;margin-top:14px;background:var(--navy);color:#fff;text-align:center;padding:15px;border-radius:14px;font-weight:900;font-size:17px}
-#cameraInput{display:none}
-.preview{margin-top:14px;background:#081521;border-radius:16px;min-height:240px;display:grid;place-items:center;overflow:hidden}
-.preview img{width:100%;max-height:480px;object-fit:contain}
-.status{margin-top:12px;padding:11px 12px;border-radius:12px;background:#edf4fa;color:#405a72}
+.camera{display:block;margin-top:14px;width:100%;padding:15px;border-radius:14px;background:var(--navy);color:white;text-align:center;font-weight:900;font-size:17px}
+#file{display:none}
+.status{margin-top:12px;padding:11px;border-radius:12px;background:#eef5fb}
 .status.loading{background:#fff5d2;color:#6b5200}
 .status.ok{background:#eaf8f1;color:#126b4a}
 .status.error{background:#fff0f0;color:#8f2828}
+.preview{margin-top:12px;border-radius:14px;background:#07131f;min-height:220px;display:grid;place-items:center;overflow:hidden}
+.preview img{max-width:100%;max-height:420px}
 .result{margin-top:14px}
 .result label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}
 .result input,.result textarea{width:100%;border:1px solid #cdd9e5;border-radius:12px;padding:12px;font:inherit}
 .result input{font-size:18px}
-.result textarea{min-height:74px;resize:vertical}
-.meta{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.45}
-@media(max-width:430px){.fields{grid-template-columns:1fr 1fr}}
-
-.cropModal{position:fixed;inset:0;background:rgba(5,18,31,.92);display:none;z-index:9999}
-.cropModal.open{display:grid;grid-template-rows:auto 1fr auto}
-.cropTop{background:#fff;padding:10px 14px;border-bottom:1px solid var(--line)}
-.cropTop h2{margin:0;font-size:18px}
-.cropStage{min-height:0;display:flex;align-items:center;justify-content:center;padding:8px;background:#07131f;overflow:hidden}
-#cropCanvas{max-width:100%;max-height:100%;touch-action:none;display:block}
-.cropBottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
-.cropBottom button{min-height:52px;border:0;border-radius:13px;font-weight:900;font-size:14px}
-.cropCancel{background:#eef3f8;color:var(--navy)}
-.cropUse{background:var(--navy);color:#fff}
-
+.result textarea{min-height:72px;resize:vertical}
+.meta{font-size:12px;color:#65798e;margin-top:7px}
+.modal{position:fixed;inset:0;background:rgba(4,14,24,.94);display:none;grid-template-rows:auto 1fr auto;z-index:9999}
+.modal.open{display:grid}
+.top{background:white;padding:11px 14px;font-weight:900}
+.stage{display:flex;align-items:center;justify-content:center;padding:8px;min-height:0}
+#crop{max-width:100%;max-height:100%;touch-action:none}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:white;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.bottom button{min-height:52px;border:0;border-radius:12px;font-weight:900}
+.repeat{background:#eef3f8;color:var(--navy)}.use{background:var(--navy);color:white}
 </style>
 </head>
 <body>
 <header>
-  <h1>DPD · Prueba Google Vision OCR</h1>
-  <p>Prueba de lectura OCR con Google Cloud Vision.</p>
+<h1>DPD · Lector Google Vision</h1>
+<p>V26 · cámara + recorte + avance automático</p>
 </header>
 
 <main>
 <div class="card">
-  <div class="fields">
-    <button class="field active" data-field="numero" data-label="NÚMERO">NÚMERO</button>
-    <button class="field" data-field="fecha" data-label="FECHA">FECHA</button>
-    <button class="field" data-field="materia" data-label="MATERIA">MATERIA</button>
-    <button class="field" data-field="proceso" data-label="PROCESO">PROCESO</button>
-    <button class="field" data-field="tipo" data-label="TIPO">TIPO</button>
-  </div>
+<div class="fields">
+<button class="field active" data-f="numero" data-label="NÚMERO">NÚMERO</button>
+<button class="field" data-f="fecha" data-label="FECHA">FECHA</button>
+<button class="field" data-f="materia" data-label="MATERIA">MATERIA</button>
+<button class="field" data-f="proceso" data-label="PROCESO">PROCESO</button>
+<button class="field" data-f="tipo" data-label="TIPO">TIPO</button>
+</div>
 
-  <label class="cameraBtn" for="cameraInput">USAR CÁMARA</label>
-  <input id="cameraInput" type="file" accept="image/*" capture="environment">
+<label class="camera" for="file">USAR CÁMARA</label>
+<input id="file" type="file" accept="image/*" capture="environment">
 
-  <div class="preview" id="preview">
-    <span style="color:#fff">La captura aparecerá aquí</span>
-  </div>
+<div class="status" id="status">Elige un campo y toma una foto.</div>
+<div class="preview" id="preview"><span style="color:white">Aquí aparecerá el recorte utilizado</span></div>
 
-  <div class="status" id="status">Elige un campo, toma la foto y recorta exactamente el dato antes de enviarlo.</div>
-
-  <div class="result">
-    <label>Dato leído</label>
-    <input id="value" placeholder="Aquí aparecerá lo detectado">
-  </div>
-
-  <div class="result">
-    <label>Texto bruto del OCR</label>
-    <textarea id="raw" readonly></textarea>
-    <div class="meta" id="meta"></div>
-  </div>
+<div class="result">
+<label>Dato leído</label>
+<input id="value" placeholder="Aquí aparecerá lo detectado">
+</div>
+<div class="result">
+<label>Texto bruto del OCR</label>
+<textarea id="raw" readonly></textarea>
+<div class="meta" id="meta"></div>
+</div>
 </div>
 </main>
 
+<div class="modal" id="modal">
+<div class="top">✂️ Ajusta el recorte antes de usarlo</div>
+<div class="stage"><canvas id="crop"></canvas></div>
+<div class="bottom">
+<button class="repeat" type="button" onclick="cancelCrop()">REPETIR FOTO</button>
+<button class="use" type="button" onclick="useCrop()">USAR RECORTE</button>
+</div>
+</div>
+
 <script>
-let currentField='numero';
+let current='numero', img=null, rect={x:0,y:0,w:0,h:0}, drag=false, mode='move', start=null;
+const order=['numero','fecha','materia','proceso','tipo'];
 const buttons=[...document.querySelectorAll('.field')];
+const input=document.getElementById('file');
 
-function setActive(btn){
-  buttons.forEach(b=>{
-    b.classList.remove('active');
-    if(!b.classList.contains('loaded')) b.textContent=b.dataset.label;
-  });
-  btn.classList.add('active');
-  currentField=btn.dataset.field;
+function setStatus(t,cl=''){
+ const el=document.getElementById('status');
+ el.className='status '+cl;
+ el.textContent=t;
 }
-buttons.forEach(b=>b.addEventListener('click',()=>setActive(b)));
-
-function status(text,type=''){
-  const el=document.getElementById('status');
-  el.className='status '+type;
-  el.textContent=text;
+function activate(b){
+ buttons.forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');
+ current=b.dataset.f;
 }
+buttons.forEach(b=>b.onclick=()=>activate(b));
 
-async function sendToOCR(file){
-  const active=document.querySelector('.field.active');
-  active.classList.remove('loaded');
-  active.classList.add('loading');
-  active.textContent='LEYENDO…';
-  status('Google Vision está leyendo la captura…','loading');
-
-  const fd=new FormData();
-  fd.append('image',file);
-  fd.append('field',currentField);
-
-  const r=await fetch('/ocr',{method:'POST',body:fd});
-  const data=await r.json();
-
-  if(!r.ok || !data.ok){
-    throw new Error(data.error || 'Error OCR');
-  }
-
-  document.getElementById('value').value=data.value || '';
-  document.getElementById('raw').value=data.raw || '';
-  document.getElementById('meta').textContent =
-    data.confidence == null
-      ? 'Lectura terminada.'
-      : 'Confianza promedio: '+data.confidence+'%';
-
-  active.classList.remove('loading');
-  active.classList.add('loaded');
-  active.textContent=active.dataset.label+' ✓';
-  status('Lectura terminada. Revisa si el dato coincide con el documento.','ok');
+function nextField(done){
+ const i=order.indexOf(done);
+ for(let n=i+1;n<order.length;n++){
+   const b=buttons.find(x=>x.dataset.f===order[n]);
+   if(b&&!b.classList.contains('loaded')){
+     activate(b);
+     setStatus('✓ '+done.toUpperCase()+' listo. Ahora toma la foto de '+b.dataset.label+'.','ok');
+     return;
+   }
+ }
+ setStatus('✓ Todos los campos fueron capturados.','ok');
 }
 
+input.onchange=e=>{
+ const f=e.target.files&&e.target.files[0];
+ if(!f)return;
 
-let sourceImg=null;
-let sourceFileName='captura.jpg';
-let cropRect={x:0,y:0,w:0,h:0};
-let dragging=false, dragMode='move', dragStart=null;
+ setStatus('Foto recibida. Preparando el recorte…');
 
-function openCrop(file){
-  sourceFileName=file.name || 'captura.jpg';
-  const reader=new FileReader();
-  reader.onload=()=>{
-    const img=new Image();
-    img.onload=()=>{
-      sourceImg=img;
-      const canvas=document.getElementById('cropCanvas');
-      const maxW=Math.min(window.innerWidth,720);
-      const maxH=Math.max(320,window.innerHeight-150);
-      const scale=Math.min(maxW/img.naturalWidth,maxH/img.naturalHeight,1);
-      canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));
-      canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-
-      const padX=Math.round(canvas.width*.08);
-      const padY=Math.round(canvas.height*(currentField==='materia'?.28:.39));
-      cropRect={
-        x:padX,
-        y:padY,
-        w:canvas.width-padX*2,
-        h:Math.max(44,Math.round(canvas.height*(currentField==='materia'?.34:(currentField==='tipo'?.22:.16))))
-      };
-      if(cropRect.y+cropRect.h>canvas.height-6) cropRect.y=Math.max(6,canvas.height-cropRect.h-6);
-      drawCrop();
-      document.getElementById('cropModal').classList.add('open');
-    };
-    img.src=reader.result;
+ const r=new FileReader();
+ r.onerror=()=>setStatus('No pude abrir la foto. Inténtalo otra vez.','error');
+ r.onload=()=>{
+  const im=new Image();
+  im.onerror=()=>setStatus('No pude leer la imagen. Inténtalo otra vez.','error');
+  im.onload=()=>{
+   img=im;
+   const c=document.getElementById('crop');
+   const s=Math.min(window.innerWidth/im.naturalWidth,(window.innerHeight-150)/im.naturalHeight,1);
+   c.width=Math.max(1,Math.round(im.naturalWidth*s));
+   c.height=Math.max(1,Math.round(im.naturalHeight*s));
+   const h=current==='materia'?.30:(current==='tipo'?.22:.18);
+   rect={x:c.width*.08,y:c.height*.38,w:c.width*.84,h:c.height*h};
+   if(rect.y+rect.h>c.height-5)rect.y=c.height-rect.h-5;
+   draw();
+   document.getElementById('modal').classList.add('open');
+   setStatus('Foto tomada. Ahora recórtala.');
   };
-  reader.readAsDataURL(file);
+  im.src=r.result;
+ };
+ r.readAsDataURL(f);
+};
+
+function draw(){
+ const c=document.getElementById('crop'),x=c.getContext('2d');
+ x.clearRect(0,0,c.width,c.height);
+ x.drawImage(img,0,0,c.width,c.height);
+ x.fillStyle='rgba(0,0,0,.5)';
+ x.fillRect(0,0,c.width,c.height);
+ x.clearRect(rect.x,rect.y,rect.w,rect.h);
+
+ const sx=rect.x*(img.naturalWidth/c.width), sy=rect.y*(img.naturalHeight/c.height),
+       sw=rect.w*(img.naturalWidth/c.width), sh=rect.h*(img.naturalHeight/c.height);
+ x.drawImage(img,sx,sy,sw,sh,rect.x,rect.y,rect.w,rect.h);
+ x.strokeStyle='#fff';
+ x.lineWidth=3;
+ x.strokeRect(rect.x,rect.y,rect.w,rect.h);
+ const s=14;
+ x.fillStyle='#fff';
+ [[rect.x,rect.y],[rect.x+rect.w,rect.y],[rect.x,rect.y+rect.h],[rect.x+rect.w,rect.y+rect.h]]
+   .forEach(([a,b])=>x.fillRect(a-s/2,b-s/2,s,s));
 }
 
-function drawCrop(){
-  const c=document.getElementById('cropCanvas'),ctx=c.getContext('2d');
-  ctx.clearRect(0,0,c.width,c.height);
-  ctx.drawImage(sourceImg,0,0,c.width,c.height);
-  ctx.fillStyle='rgba(0,0,0,.5)';
-  ctx.fillRect(0,0,c.width,c.height);
-  ctx.clearRect(cropRect.x,cropRect.y,cropRect.w,cropRect.h);
-
-  const sx=cropRect.x*(sourceImg.naturalWidth/c.width);
-  const sy=cropRect.y*(sourceImg.naturalHeight/c.height);
-  const sw=cropRect.w*(sourceImg.naturalWidth/c.width);
-  const sh=cropRect.h*(sourceImg.naturalHeight/c.height);
-  ctx.drawImage(sourceImg,sx,sy,sw,sh,cropRect.x,cropRect.y,cropRect.w,cropRect.h);
-
-  ctx.strokeStyle='#fff';ctx.lineWidth=3;
-  ctx.strokeRect(cropRect.x,cropRect.y,cropRect.w,cropRect.h);
-  ctx.fillStyle='#fff';
-  const s=14;
-  [[cropRect.x,cropRect.y],[cropRect.x+cropRect.w,cropRect.y],
-   [cropRect.x,cropRect.y+cropRect.h],[cropRect.x+cropRect.w,cropRect.y+cropRect.h]]
-    .forEach(([x,y])=>ctx.fillRect(x-s/2,y-s/2,s,s));
-}
-
-function pointerPos(ev){
-  const c=document.getElementById('cropCanvas'),r=c.getBoundingClientRect();
-  const p=ev.touches?ev.touches[0]:ev;
-  return {x:(p.clientX-r.left)*(c.width/r.width),y:(p.clientY-r.top)*(c.height/r.height)};
+function pos(e){
+ const c=document.getElementById('crop'),r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;
+ return{x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height};
 }
 function hit(p){
-  const t=24;
-  const cs=[['nw',cropRect.x,cropRect.y],['ne',cropRect.x+cropRect.w,cropRect.y],
-            ['sw',cropRect.x,cropRect.y+cropRect.h],['se',cropRect.x+cropRect.w,cropRect.y+cropRect.h]];
-  for(const [m,x,y] of cs) if(Math.abs(p.x-x)<=t&&Math.abs(p.y-y)<=t) return m;
-  if(p.x>=cropRect.x&&p.x<=cropRect.x+cropRect.w&&p.y>=cropRect.y&&p.y<=cropRect.y+cropRect.h) return 'move';
-  return 'new';
+ const t=24,cs=[['nw',rect.x,rect.y],['ne',rect.x+rect.w,rect.y],['sw',rect.x,rect.y+rect.h],['se',rect.x+rect.w,rect.y+rect.h]];
+ for(const [m,x,y] of cs)if(Math.abs(p.x-x)<t&&Math.abs(p.y-y)<t)return m;
+ return(p.x>=rect.x&&p.x<=rect.x+rect.w&&p.y>=rect.y&&p.y<=rect.y+rect.h)?'move':'new';
 }
-function startDrag(ev){
-  ev.preventDefault();
-  const p=pointerPos(ev);dragging=true;dragMode=hit(p);
-  dragStart={x:p.x,y:p.y,rx:cropRect.x,ry:cropRect.y,rw:cropRect.w,rh:cropRect.h};
-  if(dragMode==='new'){
-    cropRect={x:p.x,y:p.y,w:10,h:10};
-    dragMode='se';
-    dragStart={x:p.x,y:p.y,rx:p.x,ry:p.y,rw:10,rh:10};
-  }
+function down(e){
+ e.preventDefault();
+ const p=pos(e);
+ drag=true;
+ mode=hit(p);
+ start={x:p.x,y:p.y,rx:rect.x,ry:rect.y,rw:rect.w,rh:rect.h};
+ if(mode==='new'){
+   rect={x:p.x,y:p.y,w:10,h:10};
+   mode='se';
+   start={x:p.x,y:p.y,rx:p.x,ry:p.y,rw:10,rh:10};
+ }
 }
-function moveDrag(ev){
-  if(!dragging)return;
-  ev.preventDefault();
-  const c=document.getElementById('cropCanvas'),p=pointerPos(ev);
-  const dx=p.x-dragStart.x,dy=p.y-dragStart.y;
-  let r={x:dragStart.rx,y:dragStart.ry,w:dragStart.rw,h:dragStart.rh};
-  if(dragMode==='move'){r.x+=dx;r.y+=dy;}
-  if(dragMode.includes('e'))r.w=Math.max(40,dragStart.rw+dx);
-  if(dragMode.includes('s'))r.h=Math.max(40,dragStart.rh+dy);
-  if(dragMode.includes('w')){r.x=dragStart.rx+dx;r.w=Math.max(40,dragStart.rw-dx);}
-  if(dragMode.includes('n')){r.y=dragStart.ry+dy;r.h=Math.max(40,dragStart.rh-dy);}
-  r.x=Math.max(0,Math.min(r.x,c.width-40));r.y=Math.max(0,Math.min(r.y,c.height-40));
-  r.w=Math.min(r.w,c.width-r.x);r.h=Math.min(r.h,c.height-r.y);
-  cropRect=r;drawCrop();
+function move(e){
+ if(!drag)return;
+ e.preventDefault();
+ const c=document.getElementById('crop'),p=pos(e),dx=p.x-start.x,dy=p.y-start.y;
+ let r={x:start.rx,y:start.ry,w:start.rw,h:start.rh};
+ if(mode==='move'){r.x+=dx;r.y+=dy}
+ if(mode.includes('e'))r.w=Math.max(40,start.rw+dx);
+ if(mode.includes('s'))r.h=Math.max(40,start.rh+dy);
+ if(mode.includes('w')){r.x=start.rx+dx;r.w=Math.max(40,start.rw-dx)}
+ if(mode.includes('n')){r.y=start.ry+dy;r.h=Math.max(40,start.rh-dy)}
+ r.x=Math.max(0,Math.min(r.x,c.width-40));
+ r.y=Math.max(0,Math.min(r.y,c.height-40));
+ r.w=Math.min(r.w,c.width-r.x);
+ r.h=Math.min(r.h,c.height-r.y);
+ rect=r;
+ draw();
 }
-function endDrag(){dragging=false;}
+function up(){drag=false}
 
-(function(){
-  const c=document.getElementById('cropCanvas');
-  c.addEventListener('mousedown',startDrag);
-  c.addEventListener('mousemove',moveDrag);
-  window.addEventListener('mouseup',endDrag);
-  c.addEventListener('touchstart',startDrag,{passive:false});
-  c.addEventListener('touchmove',moveDrag,{passive:false});
-  c.addEventListener('touchend',endDrag,{passive:false});
-})();
+const c=document.getElementById('crop');
+c.addEventListener('mousedown',down);
+c.addEventListener('mousemove',move);
+window.addEventListener('mouseup',up);
+c.addEventListener('touchstart',down,{passive:false});
+c.addEventListener('touchmove',move,{passive:false});
+c.addEventListener('touchend',up,{passive:false});
 
 function cancelCrop(){
-  document.getElementById('cropModal').classList.remove('open');
-  sourceImg=null;
-  document.getElementById('cameraInput').value='';
-  status('Vuelve a tomar la foto.','');
+ document.getElementById('modal').classList.remove('open');
+ input.value='';
+ img=null;
+ setStatus('Vuelve a tomar la foto de '+document.querySelector('.field.active').dataset.label+'.');
+}
+
+async function sendToOCR(blob,field){
+ const active=buttons.find(b=>b.dataset.f===field);
+ active.classList.add('loading');
+ active.textContent='LEYENDO…';
+ setStatus('Google Vision está leyendo '+active.dataset.label+'…','loading');
+
+ const fd=new FormData();
+ fd.append('image',blob,'recorte.jpg');
+ fd.append('field',field);
+
+ const r=await fetch('/ocr',{method:'POST',body:fd});
+ const text=await r.text();
+ let data;
+ try{data=JSON.parse(text)}
+ catch(_){throw new Error('Respuesta del servidor: '+text.slice(0,180))}
+
+ if(!r.ok||!data.ok)throw new Error(data.error||('Error HTTP '+r.status));
+
+ document.getElementById('value').value=data.value||'';
+ document.getElementById('raw').value=data.raw||'';
+ document.getElementById('meta').textContent='Lectura terminada.';
+
+ active.classList.remove('loading');
+ active.classList.add('loaded');
+ active.textContent=active.dataset.label+' ✓';
+ nextField(field);
 }
 
 async function useCrop(){
-  const c=document.getElementById('cropCanvas');
-  const sx=cropRect.x*(sourceImg.naturalWidth/c.width);
-  const sy=cropRect.y*(sourceImg.naturalHeight/c.height);
-  const sw=cropRect.w*(sourceImg.naturalWidth/c.width);
-  const sh=cropRect.h*(sourceImg.naturalHeight/c.height);
+ if(!img)return;
+ const field=current;
+ const c=document.getElementById('crop'),
+       sx=rect.x*img.naturalWidth/c.width,
+       sy=rect.y*img.naturalHeight/c.height,
+       sw=rect.w*img.naturalWidth/c.width,
+       sh=rect.h*img.naturalHeight/c.height;
 
-  const out=document.createElement('canvas');
-  out.width=Math.max(1,Math.round(sw));
-  out.height=Math.max(1,Math.round(sh));
-  out.getContext('2d').drawImage(sourceImg,sx,sy,sw,sh,0,0,out.width,out.height);
+ const o=document.createElement('canvas');
+ o.width=Math.max(1,Math.round(sw));
+ o.height=Math.max(1,Math.round(sh));
+ o.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,o.width,o.height);
 
-  const blob=await new Promise(res=>out.toBlob(res,'image/jpeg',.95));
-  const cropFile=new File([blob],sourceFileName,{type:'image/jpeg'});
+ const data=o.toDataURL('image/jpeg',.95);
+ document.getElementById('preview').innerHTML='<img src="'+data+'">';
+ document.getElementById('modal').classList.remove('open');
 
-  document.getElementById('cropModal').classList.remove('open');
-
-  const preview=document.getElementById('preview');
-  preview.innerHTML='';
-  const img=document.createElement('img');
-  img.src=URL.createObjectURL(blob);
-  preview.appendChild(img);
-
-  try{
-    await sendToOCR(cropFile);
-  }catch(err){
-    const active=document.querySelector('.field.active');
-    active.classList.remove('loading');
-    active.textContent=active.dataset.label;
-    status('No pude conectar con Google Vision: '+err.message,'error');
-  }finally{
-    document.getElementById('cameraInput').value='';
-    sourceImg=null;
-  }
+ o.toBlob(async blob=>{
+   if(!blob){setStatus('No pude crear el recorte.','error');return}
+   try{
+     await sendToOCR(blob,field);
+   }catch(err){
+     const active=buttons.find(b=>b.dataset.f===field);
+     active.classList.remove('loading');
+     active.textContent=active.dataset.label;
+     setStatus('Error OCR: '+err.message,'error');
+   }finally{
+     input.value='';
+     img=null;
+   }
+ },'image/jpeg',.95);
 }
-
-document.getElementById('cameraInput').addEventListener('change',e=>{
-  const file=e.target.files?.[0];
-  if(!file)return;
-  status('Foto tomada. Ajusta el recorte antes de enviarla al OCR.','');
-  openCrop(file);
-});
 </script>
-
-<div class="cropModal" id="cropModal">
-  <div class="cropTop"><h2>✂️ Ajusta el recorte</h2></div>
-  <div class="cropStage"><canvas id="cropCanvas"></canvas></div>
-  <div class="cropBottom">
-    <button class="cropCancel" onclick="cancelCrop()">REPETIR FOTO</button>
-    <button class="cropUse" onclick="useCrop()">USAR RECORTE</button>
-  </div>
-</div>
-
 </body>
 </html>

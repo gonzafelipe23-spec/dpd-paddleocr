@@ -1,12 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-import base64
 import httpx
 import os
 import re
 
-app = FastAPI(title="DPD Google Vision OCR")
+app = FastAPI(title="DPD OCR.Space OCR")
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,8 +15,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-VISION_API_KEY = os.getenv("GOOGLE_VISION_API_KEY", "").strip()
-VISION_URL = "https://vision.googleapis.com/v1/images:annotate"
+OCR_SPACE_API_KEY = os.getenv("OCR_SPACE_API_KEY", "").strip()
+OCR_SPACE_URL = "https://api.ocr.space/parse/image"
 
 def normalize_text(text):
     return " ".join(str(text or "").replace("\r", " ").replace("\n", " ").split()).strip()
@@ -26,21 +25,21 @@ def clean_field(text, field):
     t = normalize_text(text)
 
     if field == "numero":
-        t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
-        groups = re.findall(r"\d+(?:[-_/]\d+)*", t)
+        t2 = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
+        groups = re.findall(r"\d+(?:[-_/]\d+)*", t2)
         if groups:
-            return max(groups, key=lambda x: len(re.sub(r"\D", "", x)))
+            return max(groups, key=lambda x: len(re.sub(r"\D","",x)))
         return t
 
     if field == "proceso":
-        t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
-        groups = re.findall(r"\d{5,}", t)
+        t2 = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
+        groups = re.findall(r"\d{5,}", t2)
         if groups:
             return max(groups, key=len)
         return t
 
     if field == "fecha":
-        t2 = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
+        t2 = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
         m = re.search(r"(\d{1,2})[./\-\s](\d{1,2})[./\-\s](\d{2,4})", t2)
         if m:
             d, mo, y = m.groups()
@@ -66,8 +65,8 @@ def root():
 def health():
     return {
         "ok": True,
-        "engine": "Google Cloud Vision",
-        "api_key_configured": bool(VISION_API_KEY),
+        "engine": "OCR.Space",
+        "api_key_configured": bool(OCR_SPACE_API_KEY),
     }
 
 @app.post("/ocr")
@@ -75,10 +74,10 @@ async def run_ocr(
     image: UploadFile = File(...),
     field: str = Form("texto")
 ):
-    if not VISION_API_KEY:
+    if not OCR_SPACE_API_KEY:
         return JSONResponse(
             status_code=500,
-            content={"ok": False, "error": "Falta configurar GOOGLE_VISION_API_KEY en Render."}
+            content={"ok": False, "error": "Falta configurar OCR_SPACE_API_KEY en Render."}
         )
 
     try:
@@ -89,54 +88,48 @@ async def run_ocr(
                 content={"ok": False, "error": "La imagen está vacía."}
             )
 
-        encoded = base64.b64encode(raw).decode("utf-8")
+        filename = image.filename or "recorte.jpg"
+        content_type = image.content_type or "image/jpeg"
 
-        payload = {
-            "requests": [
-                {
-                    "image": {"content": encoded},
-                    "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
-                    "imageContext": {"languageHints": ["es"]},
-                }
-            ]
+        headers = {"apikey": OCR_SPACE_API_KEY}
+        data = {
+            "language": "spa",
+            "isOverlayRequired": "false",
+            "OCREngine": "2",
+            "scale": "true",
+        }
+        files = {
+            "file": (filename, raw, content_type)
         }
 
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                VISION_URL,
-                params={"key": VISION_API_KEY},
-                json=payload,
+                OCR_SPACE_URL,
+                headers=headers,
+                data=data,
+                files=files,
             )
 
-        data = response.json()
+        text_body = response.text
+        try:
+            payload = response.json()
+        except Exception:
+            raise RuntimeError(f"OCR.Space respondió HTTP {response.status_code}: {text_body[:250]}")
 
         if response.status_code >= 400:
-            message = (
-                data.get("error", {}).get("message")
-                if isinstance(data, dict)
-                else None
-            )
-            raise RuntimeError(message or f"Google Vision respondió HTTP {response.status_code}")
+            raise RuntimeError(payload.get("ErrorMessage") or f"HTTP {response.status_code}")
 
-        responses = data.get("responses", [])
-        if not responses:
-            raise RuntimeError("Google Vision no devolvió una respuesta OCR.")
+        if payload.get("IsErroredOnProcessing"):
+            err = payload.get("ErrorMessage") or payload.get("ErrorDetails") or "OCR.Space no pudo procesar la imagen."
+            if isinstance(err, list):
+                err = " | ".join(map(str, err))
+            raise RuntimeError(str(err))
 
-        first = responses[0]
-        if first.get("error"):
-            raise RuntimeError(first["error"].get("message", "Error de Google Vision"))
+        parsed = payload.get("ParsedResults") or []
+        if not parsed:
+            raise RuntimeError("OCR.Space no devolvió texto.")
 
-        raw_text = ""
-        full = first.get("fullTextAnnotation", {})
-        if isinstance(full, dict):
-            raw_text = full.get("text", "") or ""
-
-        if not raw_text:
-            annotations = first.get("textAnnotations", [])
-            if annotations:
-                raw_text = annotations[0].get("description", "") or ""
-
-        raw_text = normalize_text(raw_text)
+        raw_text = normalize_text(parsed[0].get("ParsedText", ""))
         value = clean_field(raw_text, field)
 
         return {

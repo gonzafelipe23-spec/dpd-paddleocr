@@ -3,286 +3,312 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>DPD · Google Vision OCR v26</title>
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<title>DPD · OCR.Space v30</title>
 <style>
-:root{--navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--ok:#16865d;--load:#e3a400;--err:#c43e3e}
+:root{--navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--ok:#167a55;--err:#b83232}
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Segoe UI,sans-serif;background:var(--bg);color:#10243a}
-header{background:var(--navy);color:white;padding:18px 16px}
-header h1{margin:0;font-size:21px}header p{margin:5px 0 0;font-size:13px;opacity:.9}
+header{background:var(--navy);color:#fff;padding:18px 16px}
+header h1{margin:0;font-size:21px}
+header p{margin:5px 0 0;font-size:13px;opacity:.9}
 main{max-width:680px;margin:auto;padding:14px}
-.card{background:white;border:1px solid var(--line);border-radius:20px;padding:15px}
-.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.field{padding:12px;border-radius:12px;border:1px solid var(--line);background:white;font-weight:800;color:var(--navy)}
-.field.active{background:var(--navy);color:white}
-.field.loading{background:#fff3c4;color:#735400;border-color:#e3c251}
-.field.loaded{background:#e7f8f0;color:#0c6d4a;border-color:#87d1ae}
-.camera{display:block;margin-top:14px;width:100%;padding:15px;border-radius:14px;background:var(--navy);color:white;text-align:center;font-weight:900;font-size:17px}
-#file{display:none}
-.status{margin-top:12px;padding:11px;border-radius:12px;background:#eef5fb}
-.status.loading{background:#fff5d2;color:#6b5200}
-.status.ok{background:#eaf8f1;color:#126b4a}
-.status.error{background:#fff0f0;color:#8f2828}
-.preview{margin-top:12px;border-radius:14px;background:#07131f;min-height:220px;display:grid;place-items:center;overflow:hidden}
-.preview img{max-width:100%;max-height:420px}
-.result{margin-top:14px}
-.result label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}
-.result input,.result textarea{width:100%;border:1px solid #cdd9e5;border-radius:12px;padding:12px;font:inherit}
-.result input{font-size:18px}
-.result textarea{min-height:72px;resize:vertical}
-.meta{font-size:12px;color:#65798e;margin-top:7px}
-.modal{position:fixed;inset:0;background:rgba(4,14,24,.94);display:none;grid-template-rows:auto 1fr auto;z-index:9999}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px}
+.camera{display:block;width:100%;padding:16px;border-radius:14px;background:var(--navy);color:#fff;text-align:center;font-weight:900;font-size:18px}
+#cameraInput{display:none}
+.status{margin-top:12px;padding:12px;border-radius:12px;background:#edf4fa;white-space:pre-wrap}
+.preview{margin-top:12px;min-height:220px;background:#081521;border-radius:14px;display:grid;place-items:center;overflow:hidden}
+.preview img{max-width:100%;max-height:440px;object-fit:contain}
+.modal{position:fixed;inset:0;background:rgba(4,14,24,.95);display:none;z-index:9999;grid-template-rows:auto 1fr auto}
 .modal.open{display:grid}
-.top{background:white;padding:11px 14px;font-weight:900}
-.stage{display:flex;align-items:center;justify-content:center;padding:8px;min-height:0}
-#crop{max-width:100%;max-height:100%;touch-action:none}
-.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:white;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
-.bottom button{min-height:52px;border:0;border-radius:12px;font-weight:900}
-.repeat{background:#eef3f8;color:var(--navy)}.use{background:var(--navy);color:white}
+.top{background:#fff;padding:11px 14px;font-weight:900}
+.stage{min-height:0;display:flex;align-items:center;justify-content:center;padding:8px}
+#cropCanvas{max-width:100%;max-height:100%;display:block;touch-action:none}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.bottom button{min-height:52px;border:0;border-radius:12px;font-weight:900;font-size:15px}
+.repeat{background:#eef3f8;color:var(--navy)}
+.use{background:var(--navy);color:#fff}
 </style>
 </head>
 <body>
 <header>
-<h1>DPD · Lector Google Vision</h1>
-<p>V26 · cámara + recorte + avance automático</p>
+  <h1>DPD · Prueba cámara</h1>
+  <p>V30 · foto + recorte + OCR.Space</p>
 </header>
 
 <main>
 <div class="card">
-<div class="fields">
-<button class="field active" data-f="numero" data-label="NÚMERO">NÚMERO</button>
-<button class="field" data-f="fecha" data-label="FECHA">FECHA</button>
-<button class="field" data-f="materia" data-label="MATERIA">MATERIA</button>
-<button class="field" data-f="proceso" data-label="PROCESO">PROCESO</button>
-<button class="field" data-f="tipo" data-label="TIPO">TIPO</button>
-</div>
-
-<label class="camera" for="file">USAR CÁMARA</label>
-<input id="file" type="file" accept="image/*" capture="environment">
-
-<div class="status" id="status">Elige un campo y toma una foto.</div>
-<div class="preview" id="preview"><span style="color:white">Aquí aparecerá el recorte utilizado</span></div>
-
-<div class="result">
-<label>Dato leído</label>
-<input id="value" placeholder="Aquí aparecerá lo detectado">
-</div>
-<div class="result">
-<label>Texto bruto del OCR</label>
-<textarea id="raw" readonly></textarea>
-<div class="meta" id="meta"></div>
-</div>
+  <label class="camera" for="cameraInput">USAR CÁMARA</label>
+  <input id="cameraInput" type="file" accept="image/*" capture="environment">
+  <div class="status" id="status">LISTO. Toca USAR CÁMARA.</div>
+  <div class="preview" id="preview"><span style="color:#fff">La foto/recorte aparecerá aquí</span></div>
+  <div style="margin-top:14px">
+    <label style="display:block;font-size:13px;font-weight:800;margin-bottom:6px">Dato leído</label>
+    <input id="ocrValue" style="width:100%;border:1px solid #cdd9e5;border-radius:12px;padding:12px;font-size:20px" placeholder="Aquí aparecerá lo detectado">
+  </div>
+  <div style="margin-top:12px">
+    <label style="display:block;font-size:13px;font-weight:800;margin-bottom:6px">Texto bruto OCR</label>
+    <textarea id="ocrRaw" readonly style="width:100%;min-height:70px;border:1px solid #cdd9e5;border-radius:12px;padding:12px"></textarea>
+  </div>
 </div>
 </main>
 
-<div class="modal" id="modal">
-<div class="top">✂️ Ajusta el recorte antes de usarlo</div>
-<div class="stage"><canvas id="crop"></canvas></div>
-<div class="bottom">
-<button class="repeat" type="button" onclick="cancelCrop()">REPETIR FOTO</button>
-<button class="use" type="button" onclick="useCrop()">USAR RECORTE</button>
-</div>
+<div class="modal" id="cropModal">
+  <div class="top">✂️ AJUSTA EL RECORTE</div>
+  <div class="stage"><canvas id="cropCanvas"></canvas></div>
+  <div class="bottom">
+    <button class="repeat" id="repeatBtn" type="button">REPETIR FOTO</button>
+    <button class="use" id="useBtn" type="button">USAR RECORTE</button>
+  </div>
 </div>
 
 <script>
-let current='numero', img=null, rect={x:0,y:0,w:0,h:0}, drag=false, mode='move', start=null;
-const order=['numero','fecha','materia','proceso','tipo'];
-const buttons=[...document.querySelectorAll('.field')];
-const input=document.getElementById('file');
+(function(){
+  const input = document.getElementById('cameraInput');
+  const status = document.getElementById('status');
+  const preview = document.getElementById('preview');
+  const modal = document.getElementById('cropModal');
+  const canvas = document.getElementById('cropCanvas');
+  const ctx = canvas.getContext('2d');
+  const repeatBtn = document.getElementById('repeatBtn');
+  const useBtn = document.getElementById('useBtn');
 
-function setStatus(t,cl=''){
- const el=document.getElementById('status');
- el.className='status '+cl;
- el.textContent=t;
-}
-function activate(b){
- buttons.forEach(x=>x.classList.remove('active'));
- b.classList.add('active');
- current=b.dataset.f;
-}
-buttons.forEach(b=>b.onclick=()=>activate(b));
+  let sourceImg = null;
+  let rect = {x:0,y:0,w:0,h:0};
+  let dragging = false;
+  let dragMode = 'move';
+  let dragStart = null;
 
-function nextField(done){
- const i=order.indexOf(done);
- for(let n=i+1;n<order.length;n++){
-   const b=buttons.find(x=>x.dataset.f===order[n]);
-   if(b&&!b.classList.contains('loaded')){
-     activate(b);
-     setStatus('✓ '+done.toUpperCase()+' listo. Ahora toma la foto de '+b.dataset.label+'.','ok');
-     return;
-   }
- }
- setStatus('✓ Todos los campos fueron capturados.','ok');
-}
+  function msg(t){ status.textContent = t; }
 
-input.onchange=e=>{
- const f=e.target.files&&e.target.files[0];
- if(!f)return;
+  window.addEventListener('error', function(e){
+    msg('ERROR JS: ' + (e.message || 'desconocido'));
+  });
 
- setStatus('Foto recibida. Preparando el recorte…');
+  input.addEventListener('click', function(){
+    msg('Se abrió la cámara/galería…');
+  });
 
- const r=new FileReader();
- r.onerror=()=>setStatus('No pude abrir la foto. Inténtalo otra vez.','error');
- r.onload=()=>{
-  const im=new Image();
-  im.onerror=()=>setStatus('No pude leer la imagen. Inténtalo otra vez.','error');
-  im.onload=()=>{
-   img=im;
-   const c=document.getElementById('crop');
-   const s=Math.min(window.innerWidth/im.naturalWidth,(window.innerHeight-150)/im.naturalHeight,1);
-   c.width=Math.max(1,Math.round(im.naturalWidth*s));
-   c.height=Math.max(1,Math.round(im.naturalHeight*s));
-   const h=current==='materia'?.30:(current==='tipo'?.22:.18);
-   rect={x:c.width*.08,y:c.height*.38,w:c.width*.84,h:c.height*h};
-   if(rect.y+rect.h>c.height-5)rect.y=c.height-rect.h-5;
-   draw();
-   document.getElementById('modal').classList.add('open');
-   setStatus('Foto tomada. Ahora recórtala.');
-  };
-  im.src=r.result;
- };
- r.readAsDataURL(f);
-};
+  input.addEventListener('change', function(){
+    try{
+      const file = input.files && input.files[0];
+      if(!file){
+        msg('No llegó ninguna foto al navegador.');
+        return;
+      }
 
-function draw(){
- const c=document.getElementById('crop'),x=c.getContext('2d');
- x.clearRect(0,0,c.width,c.height);
- x.drawImage(img,0,0,c.width,c.height);
- x.fillStyle='rgba(0,0,0,.5)';
- x.fillRect(0,0,c.width,c.height);
- x.clearRect(rect.x,rect.y,rect.w,rect.h);
+      msg('Foto recibida: ' + file.name + '\nTamaño: ' + Math.round(file.size/1024) + ' KB');
 
- const sx=rect.x*(img.naturalWidth/c.width), sy=rect.y*(img.naturalHeight/c.height),
-       sw=rect.w*(img.naturalWidth/c.width), sh=rect.h*(img.naturalHeight/c.height);
- x.drawImage(img,sx,sy,sw,sh,rect.x,rect.y,rect.w,rect.h);
- x.strokeStyle='#fff';
- x.lineWidth=3;
- x.strokeRect(rect.x,rect.y,rect.w,rect.h);
- const s=14;
- x.fillStyle='#fff';
- [[rect.x,rect.y],[rect.x+rect.w,rect.y],[rect.x,rect.y+rect.h],[rect.x+rect.w,rect.y+rect.h]]
-   .forEach(([a,b])=>x.fillRect(a-s/2,b-s/2,s,s));
-}
+      const url = URL.createObjectURL(file);
+      preview.innerHTML = '';
+      const pimg = document.createElement('img');
+      pimg.src = url;
+      preview.appendChild(pimg);
 
-function pos(e){
- const c=document.getElementById('crop'),r=c.getBoundingClientRect(),p=e.touches?e.touches[0]:e;
- return{x:(p.clientX-r.left)*c.width/r.width,y:(p.clientY-r.top)*c.height/r.height};
-}
-function hit(p){
- const t=24,cs=[['nw',rect.x,rect.y],['ne',rect.x+rect.w,rect.y],['sw',rect.x,rect.y+rect.h],['se',rect.x+rect.w,rect.y+rect.h]];
- for(const [m,x,y] of cs)if(Math.abs(p.x-x)<t&&Math.abs(p.y-y)<t)return m;
- return(p.x>=rect.x&&p.x<=rect.x+rect.w&&p.y>=rect.y&&p.y<=rect.y+rect.h)?'move':'new';
-}
-function down(e){
- e.preventDefault();
- const p=pos(e);
- drag=true;
- mode=hit(p);
- start={x:p.x,y:p.y,rx:rect.x,ry:rect.y,rw:rect.w,rh:rect.h};
- if(mode==='new'){
-   rect={x:p.x,y:p.y,w:10,h:10};
-   mode='se';
-   start={x:p.x,y:p.y,rx:p.x,ry:p.y,rw:10,rh:10};
- }
-}
-function move(e){
- if(!drag)return;
- e.preventDefault();
- const c=document.getElementById('crop'),p=pos(e),dx=p.x-start.x,dy=p.y-start.y;
- let r={x:start.rx,y:start.ry,w:start.rw,h:start.rh};
- if(mode==='move'){r.x+=dx;r.y+=dy}
- if(mode.includes('e'))r.w=Math.max(40,start.rw+dx);
- if(mode.includes('s'))r.h=Math.max(40,start.rh+dy);
- if(mode.includes('w')){r.x=start.rx+dx;r.w=Math.max(40,start.rw-dx)}
- if(mode.includes('n')){r.y=start.ry+dy;r.h=Math.max(40,start.rh-dy)}
- r.x=Math.max(0,Math.min(r.x,c.width-40));
- r.y=Math.max(0,Math.min(r.y,c.height-40));
- r.w=Math.min(r.w,c.width-r.x);
- r.h=Math.min(r.h,c.height-r.y);
- rect=r;
- draw();
-}
-function up(){drag=false}
+      const reader = new FileReader();
+      reader.onerror = function(){ msg('ERROR: FileReader no pudo abrir la foto.'); };
+      reader.onload = function(){
+        const im = new Image();
+        im.onerror = function(){ msg('ERROR: el navegador no pudo decodificar la foto.'); };
+        im.onload = function(){
+          sourceImg = im;
 
-const c=document.getElementById('crop');
-c.addEventListener('mousedown',down);
-c.addEventListener('mousemove',move);
-window.addEventListener('mouseup',up);
-c.addEventListener('touchstart',down,{passive:false});
-c.addEventListener('touchmove',move,{passive:false});
-c.addEventListener('touchend',up,{passive:false});
+          const maxW = Math.max(280, window.innerWidth - 16);
+          const maxH = Math.max(300, window.innerHeight - 150);
+          const scale = Math.min(maxW / im.naturalWidth, maxH / im.naturalHeight, 1);
 
-function cancelCrop(){
- document.getElementById('modal').classList.remove('open');
- input.value='';
- img=null;
- setStatus('Vuelve a tomar la foto de '+document.querySelector('.field.active').dataset.label+'.');
-}
+          canvas.width = Math.max(1, Math.round(im.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(im.naturalHeight * scale));
 
-async function sendToOCR(blob,field){
- const active=buttons.find(b=>b.dataset.f===field);
- active.classList.add('loading');
- active.textContent='LEYENDO…';
- setStatus('Google Vision está leyendo '+active.dataset.label+'…','loading');
+          rect = {
+            x: canvas.width * .08,
+            y: canvas.height * .38,
+            w: canvas.width * .84,
+            h: Math.max(50, canvas.height * .18)
+          };
 
- const fd=new FormData();
- fd.append('image',blob,'recorte.jpg');
- fd.append('field',field);
+          if(rect.y + rect.h > canvas.height - 5){
+            rect.y = Math.max(5, canvas.height - rect.h - 5);
+          }
 
- const r=await fetch('/ocr',{method:'POST',body:fd});
- const text=await r.text();
- let data;
- try{data=JSON.parse(text)}
- catch(_){throw new Error('Respuesta del servidor: '+text.slice(0,180))}
+          draw();
+          modal.classList.add('open');
+          msg('OK: foto cargada. El recortador debería estar abierto.');
+        };
+        im.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }catch(err){
+      msg('ERROR change: ' + err.message);
+    }
+  });
 
- if(!r.ok||!data.ok)throw new Error(data.error||('Error HTTP '+r.status));
+  function draw(){
+    if(!sourceImg) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(sourceImg,0,0,canvas.width,canvas.height);
+    ctx.fillStyle='rgba(0,0,0,.5)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
- document.getElementById('value').value=data.value||'';
- document.getElementById('raw').value=data.raw||'';
- document.getElementById('meta').textContent='Lectura terminada.';
+    const sx = rect.x * (sourceImg.naturalWidth/canvas.width);
+    const sy = rect.y * (sourceImg.naturalHeight/canvas.height);
+    const sw = rect.w * (sourceImg.naturalWidth/canvas.width);
+    const sh = rect.h * (sourceImg.naturalHeight/canvas.height);
 
- active.classList.remove('loading');
- active.classList.add('loaded');
- active.textContent=active.dataset.label+' ✓';
- nextField(field);
-}
+    ctx.drawImage(sourceImg,sx,sy,sw,sh,rect.x,rect.y,rect.w,rect.h);
 
-async function useCrop(){
- if(!img)return;
- const field=current;
- const c=document.getElementById('crop'),
-       sx=rect.x*img.naturalWidth/c.width,
-       sy=rect.y*img.naturalHeight/c.height,
-       sw=rect.w*img.naturalWidth/c.width,
-       sh=rect.h*img.naturalHeight/c.height;
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=3;
+    ctx.strokeRect(rect.x,rect.y,rect.w,rect.h);
 
- const o=document.createElement('canvas');
- o.width=Math.max(1,Math.round(sw));
- o.height=Math.max(1,Math.round(sh));
- o.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,o.width,o.height);
+    const s=14;
+    ctx.fillStyle='#fff';
+    [
+      [rect.x,rect.y],
+      [rect.x+rect.w,rect.y],
+      [rect.x,rect.y+rect.h],
+      [rect.x+rect.w,rect.y+rect.h]
+    ].forEach(([x,y])=>ctx.fillRect(x-s/2,y-s/2,s,s));
+  }
 
- const data=o.toDataURL('image/jpeg',.95);
- document.getElementById('preview').innerHTML='<img src="'+data+'">';
- document.getElementById('modal').classList.remove('open');
+  function point(ev){
+    const r = canvas.getBoundingClientRect();
+    const p = ev.touches ? ev.touches[0] : ev;
+    return {
+      x:(p.clientX-r.left)*(canvas.width/r.width),
+      y:(p.clientY-r.top)*(canvas.height/r.height)
+    };
+  }
 
- o.toBlob(async blob=>{
-   if(!blob){setStatus('No pude crear el recorte.','error');return}
-   try{
-     await sendToOCR(blob,field);
-   }catch(err){
-     const active=buttons.find(b=>b.dataset.f===field);
-     active.classList.remove('loading');
-     active.textContent=active.dataset.label;
-     setStatus('Error OCR: '+err.message,'error');
-   }finally{
-     input.value='';
-     img=null;
-   }
- },'image/jpeg',.95);
-}
+  function hit(p){
+    const t=28;
+    const corners=[
+      ['nw',rect.x,rect.y],
+      ['ne',rect.x+rect.w,rect.y],
+      ['sw',rect.x,rect.y+rect.h],
+      ['se',rect.x+rect.w,rect.y+rect.h]
+    ];
+    for(const [m,x,y] of corners){
+      if(Math.abs(p.x-x)<=t && Math.abs(p.y-y)<=t) return m;
+    }
+    if(p.x>=rect.x && p.x<=rect.x+rect.w && p.y>=rect.y && p.y<=rect.y+rect.h) return 'move';
+    return 'new';
+  }
+
+  function startDrag(ev){
+    ev.preventDefault();
+    const p=point(ev);
+    dragging=true;
+    dragMode=hit(p);
+    dragStart={x:p.x,y:p.y,rx:rect.x,ry:rect.y,rw:rect.w,rh:rect.h};
+
+    if(dragMode==='new'){
+      rect={x:p.x,y:p.y,w:40,h:40};
+      dragMode='se';
+      dragStart={x:p.x,y:p.y,rx:p.x,ry:p.y,rw:40,rh:40};
+    }
+  }
+
+  function moveDrag(ev){
+    if(!dragging)return;
+    ev.preventDefault();
+
+    const p=point(ev);
+    const dx=p.x-dragStart.x;
+    const dy=p.y-dragStart.y;
+    let r={x:dragStart.rx,y:dragStart.ry,w:dragStart.rw,h:dragStart.rh};
+
+    if(dragMode==='move'){ r.x+=dx; r.y+=dy; }
+    if(dragMode.includes('e')) r.w=Math.max(40,dragStart.rw+dx);
+    if(dragMode.includes('s')) r.h=Math.max(40,dragStart.rh+dy);
+    if(dragMode.includes('w')){ r.x=dragStart.rx+dx; r.w=Math.max(40,dragStart.rw-dx); }
+    if(dragMode.includes('n')){ r.y=dragStart.ry+dy; r.h=Math.max(40,dragStart.rh-dy); }
+
+    r.x=Math.max(0,Math.min(r.x,canvas.width-40));
+    r.y=Math.max(0,Math.min(r.y,canvas.height-40));
+    r.w=Math.min(r.w,canvas.width-r.x);
+    r.h=Math.min(r.h,canvas.height-r.y);
+
+    rect=r;
+    draw();
+  }
+
+  function endDrag(){ dragging=false; }
+
+  canvas.addEventListener('mousedown', startDrag);
+  canvas.addEventListener('mousemove', moveDrag);
+  window.addEventListener('mouseup', endDrag);
+  canvas.addEventListener('touchstart', startDrag, {passive:false});
+  canvas.addEventListener('touchmove', moveDrag, {passive:false});
+  canvas.addEventListener('touchend', endDrag, {passive:false});
+
+  repeatBtn.addEventListener('click', function(){
+    modal.classList.remove('open');
+    sourceImg=null;
+    input.value='';
+    msg('Repite la foto.');
+  });
+
+  useBtn.addEventListener('click', async function(){
+    if(!sourceImg){
+      msg('ERROR: no hay imagen cargada.');
+      return;
+    }
+
+    const sx = rect.x * (sourceImg.naturalWidth/canvas.width);
+    const sy = rect.y * (sourceImg.naturalHeight/canvas.height);
+    const sw = rect.w * (sourceImg.naturalWidth/canvas.width);
+    const sh = rect.h * (sourceImg.naturalHeight/canvas.height);
+
+    const out=document.createElement('canvas');
+    out.width=Math.max(1,Math.round(sw));
+    out.height=Math.max(1,Math.round(sh));
+    out.getContext('2d').drawImage(sourceImg,sx,sy,sw,sh,0,0,out.width,out.height);
+
+    preview.innerHTML='';
+    const result=document.createElement('img');
+    result.src=out.toDataURL('image/jpeg',.95);
+    preview.appendChild(result);
+
+    modal.classList.remove('open');
+    msg('Recorte guardado. Enviando a OCR.Space…');
+
+    try{
+      const blob = await new Promise(resolve => out.toBlob(resolve,'image/jpeg',.95));
+      if(!blob) throw new Error('No pude crear la imagen recortada.');
+
+      const fd = new FormData();
+      fd.append('image', blob, 'recorte.jpg');
+      fd.append('field', 'numero');
+
+      const response = await fetch('https://dpd-paddleocr.onrender.com/ocr', {
+        method: 'POST',
+        body: fd
+      });
+
+      const rawResponse = await response.text();
+      let data;
+      try{
+        data = JSON.parse(rawResponse);
+      }catch(_){
+        throw new Error('El servidor devolvió: ' + rawResponse.slice(0,180));
+      }
+
+      if(!response.ok || !data.ok){
+        throw new Error(data.error || ('Error HTTP ' + response.status));
+      }
+
+      document.getElementById('ocrValue').value = data.value || '';
+      document.getElementById('ocrRaw').value = data.raw || '';
+      msg('OK: OCR.Space leyó el recorte.');
+    }catch(err){
+      msg('ERROR OCR: ' + err.message);
+    }finally{
+      input.value='';
+      sourceImg=null;
+    }
+  });
+})();
 </script>
 </body>
 </html>

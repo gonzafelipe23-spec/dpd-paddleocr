@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<title>DPD · Prueba cámara v27</title>
+<style>
+:root{--navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--ok:#167a55;--err:#b83232}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Segoe UI,sans-serif;background:var(--bg);color:#10243a}
+header{background:var(--navy);color:#fff;padding:18px 16px}
+header h1{margin:0;font-size:21px}
+header p{margin:5px 0 0;font-size:13px;opacity:.9}
+main{max-width:680px;margin:auto;padding:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:15px}
+.camera{display:block;width:100%;padding:16px;border-radius:14px;background:var(--navy);color:#fff;text-align:center;font-weight:900;font-size:18px}
+#cameraInput{display:none}
+.status{margin-top:12px;padding:12px;border-radius:12px;background:#edf4fa;white-space:pre-wrap}
+.preview{margin-top:12px;min-height:220px;background:#081521;border-radius:14px;display:grid;place-items:center;overflow:hidden}
+.preview img{max-width:100%;max-height:440px;object-fit:contain}
+.modal{position:fixed;inset:0;background:rgba(4,14,24,.95);display:none;z-index:9999;grid-template-rows:auto 1fr auto}
+.modal.open{display:grid}
+.top{background:#fff;padding:11px 14px;font-weight:900}
+.stage{min-height:0;display:flex;align-items:center;justify-content:center;padding:8px}
+#cropCanvas{max-width:100%;max-height:100%;display:block;touch-action:none}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#fff;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
+.bottom button{min-height:52px;border:0;border-radius:12px;font-weight:900;font-size:15px}
+.repeat{background:#eef3f8;color:var(--navy)}
+.use{background:var(--navy);color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <h1>DPD · Prueba cámara</h1>
+  <p>V27 · solo foto + recorte, sin OCR</p>
+</header>
+
+<main>
+<div class="card">
+  <label class="camera" for="cameraInput">USAR CÁMARA</label>
+  <input id="cameraInput" type="file" accept="image/*" capture="environment">
+  <div class="status" id="status">LISTO. Toca USAR CÁMARA.</div>
+  <div class="preview" id="preview"><span style="color:#fff">La foto/recorte aparecerá aquí</span></div>
+</div>
+</main>
+
+<div class="modal" id="cropModal">
+  <div class="top">✂️ AJUSTA EL RECORTE</div>
+  <div class="stage"><canvas id="cropCanvas"></canvas></div>
+  <div class="bottom">
+    <button class="repeat" id="repeatBtn" type="button">REPETIR FOTO</button>
+    <button class="use" id="useBtn" type="button">USAR RECORTE</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById('cameraInput');
+  const status = document.getElementById('status');
+  const preview = document.getElementById('preview');
+  const modal = document.getElementById('cropModal');
+  const canvas = document.getElementById('cropCanvas');
+  const ctx = canvas.getContext('2d');
+  const repeatBtn = document.getElementById('repeatBtn');
+  const useBtn = document.getElementById('useBtn');
+
+  let sourceImg = null;
+  let rect = {x:0,y:0,w:0,h:0};
+  let dragging = false;
+  let dragMode = 'move';
+  let dragStart = null;
+
+  function msg(t){ status.textContent = t; }
+
+  window.addEventListener('error', function(e){
+    msg('ERROR JS: ' + (e.message || 'desconocido'));
+  });
+
+  input.addEventListener('click', function(){
+    msg('Se abrió la cámara/galería…');
+  });
+
+  input.addEventListener('change', function(){
+    try{
+      const file = input.files && input.files[0];
+      if(!file){
+        msg('No llegó ninguna foto al navegador.');
+        return;
+      }
+
+      msg('Foto recibida: ' + file.name + '\nTamaño: ' + Math.round(file.size/1024) + ' KB');
+
+      const url = URL.createObjectURL(file);
+      preview.innerHTML = '';
+      const pimg = document.createElement('img');
+      pimg.src = url;
+      preview.appendChild(pimg);
+
+      const reader = new FileReader();
+      reader.onerror = function(){ msg('ERROR: FileReader no pudo abrir la foto.'); };
+      reader.onload = function(){
+        const im = new Image();
+        im.onerror = function(){ msg('ERROR: el navegador no pudo decodificar la foto.'); };
+        im.onload = function(){
+          sourceImg = im;
+
+          const maxW = Math.max(280, window.innerWidth - 16);
+          const maxH = Math.max(300, window.innerHeight - 150);
+          const scale = Math.min(maxW / im.naturalWidth, maxH / im.naturalHeight, 1);
+
+          canvas.width = Math.max(1, Math.round(im.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(im.naturalHeight * scale));
+
+          rect = {
+            x: canvas.width * .08,
+            y: canvas.height * .38,
+            w: canvas.width * .84,
+            h: Math.max(50, canvas.height * .18)
+          };
+
+          if(rect.y + rect.h > canvas.height - 5){
+            rect.y = Math.max(5, canvas.height - rect.h - 5);
+          }
+
+          draw();
+          modal.classList.add('open');
+          msg('OK: foto cargada. El recortador debería estar abierto.');
+        };
+        im.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    }catch(err){
+      msg('ERROR change: ' + err.message);
+    }
+  });
+
+  function draw(){
+    if(!sourceImg) return;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.drawImage(sourceImg,0,0,canvas.width,canvas.height);
+    ctx.fillStyle='rgba(0,0,0,.5)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    const sx = rect.x * (sourceImg.naturalWidth/canvas.width);
+    const sy = rect.y * (sourceImg.naturalHeight/canvas.height);
+    const sw = rect.w * (sourceImg.naturalWidth/canvas.width);
+    const sh = rect.h * (sourceImg.naturalHeight/canvas.height);
+
+    ctx.drawImage(sourceImg,sx,sy,sw,sh,rect.x,rect.y,rect.w,rect.h);
+
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=3;
+    ctx.strokeRect(rect.x,rect.y,rect.w,rect.h);
+
+    const s=14;
+    ctx.fillStyle='#fff';
+    [
+      [rect.x,rect.y],
+      [rect.x+rect.w,rect.y],
+      [rect.x,rect.y+rect.h],
+      [rect.x+rect.w,rect.y+rect.h]
+    ].forEach(([x,y])=>ctx.fillRect(x-s/2,y-s/2,s,s));
+  }
+
+  function point(ev){
+    const r = canvas.getBoundingClientRect();
+    const p = ev.touches ? ev.touches[0] : ev;
+    return {
+      x:(p.clientX-r.left)*(canvas.width/r.width),
+      y:(p.clientY-r.top)*(canvas.height/r.height)
+    };
+  }
+
+  function hit(p){
+    const t=28;
+    const corners=[
+      ['nw',rect.x,rect.y],
+      ['ne',rect.x+rect.w,rect.y],
+      ['sw',rect.x,rect.y+rect.h],
+      ['se',rect.x+rect.w,rect.y+rect.h]
+    ];
+    for(const [m,x,y] of corners){
+      if(Math.abs(p.x-x)<=t && Math.abs(p.y-y)<=t) return m;
+    }
+    if(p.x>=rect.x && p.x<=rect.x+rect.w && p.y>=rect.y && p.y<=rect.y+rect.h) return 'move';
+    return 'new';
+  }
+
+  function startDrag(ev){
+    ev.preventDefault();
+    const p=point(ev);
+    dragging=true;
+    dragMode=hit(p);
+    dragStart={x:p.x,y:p.y,rx:rect.x,ry:rect.y,rw:rect.w,rh:rect.h};
+
+    if(dragMode==='new'){
+      rect={x:p.x,y:p.y,w:40,h:40};
+      dragMode='se';
+      dragStart={x:p.x,y:p.y,rx:p.x,ry:p.y,rw:40,rh:40};
+    }
+  }
+
+  function moveDrag(ev){
+    if(!dragging)return;
+    ev.preventDefault();
+
+    const p=point(ev);
+    const dx=p.x-dragStart.x;
+    const dy=p.y-dragStart.y;
+    let r={x:dragStart.rx,y:dragStart.ry,w:dragStart.rw,h:dragStart.rh};
+
+    if(dragMode==='move'){ r.x+=dx; r.y+=dy; }
+    if(dragMode.includes('e')) r.w=Math.max(40,dragStart.rw+dx);
+    if(dragMode.includes('s')) r.h=Math.max(40,dragStart.rh+dy);
+    if(dragMode.includes('w')){ r.x=dragStart.rx+dx; r.w=Math.max(40,dragStart.rw-dx); }
+    if(dragMode.includes('n')){ r.y=dragStart.ry+dy; r.h=Math.max(40,dragStart.rh-dy); }
+
+    r.x=Math.max(0,Math.min(r.x,canvas.width-40));
+    r.y=Math.max(0,Math.min(r.y,canvas.height-40));
+    r.w=Math.min(r.w,canvas.width-r.x);
+    r.h=Math.min(r.h,canvas.height-r.y);
+
+    rect=r;
+    draw();
+  }
+
+  function endDrag(){ dragging=false; }
+
+  canvas.addEventListener('mousedown', startDrag);
+  canvas.addEventListener('mousemove', moveDrag);
+  window.addEventListener('mouseup', endDrag);
+  canvas.addEventListener('touchstart', startDrag, {passive:false});
+  canvas.addEventListener('touchmove', moveDrag, {passive:false});
+  canvas.addEventListener('touchend', endDrag, {passive:false});
+
+  repeatBtn.addEventListener('click', function(){
+    modal.classList.remove('open');
+    sourceImg=null;
+    input.value='';
+    msg('Repite la foto.');
+  });
+
+  useBtn.addEventListener('click', function(){
+    if(!sourceImg){
+      msg('ERROR: no hay imagen cargada.');
+      return;
+    }
+
+    const sx = rect.x * (sourceImg.naturalWidth/canvas.width);
+    const sy = rect.y * (sourceImg.naturalHeight/canvas.height);
+    const sw = rect.w * (sourceImg.naturalWidth/canvas.width);
+    const sh = rect.h * (sourceImg.naturalHeight/canvas.height);
+
+    const out=document.createElement('canvas');
+    out.width=Math.max(1,Math.round(sw));
+    out.height=Math.max(1,Math.round(sh));
+    out.getContext('2d').drawImage(sourceImg,sx,sy,sw,sh,0,0,out.width,out.height);
+
+    preview.innerHTML='';
+    const result=document.createElement('img');
+    result.src=out.toDataURL('image/jpeg',.95);
+    preview.appendChild(result);
+
+    modal.classList.remove('open');
+    msg('OK: recorte guardado. ESTA PRUEBA NO ENVÍA NADA AL OCR.');
+    input.value='';
+  });
+})();
+</script>
+</body>
+</html>

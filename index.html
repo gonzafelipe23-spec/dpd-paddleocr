@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b2d4d">
-<title>DPD · PaddleOCR</title>
+<title>DPD · Google Vision OCR</title>
 <style>
 :root{
  --navy:#0b2d4d;--bg:#f4f7fb;--line:#dce5ee;--text:#10243a;
@@ -53,8 +53,8 @@ main{max-width:720px;margin:auto;padding:14px}
 </head>
 <body>
 <header>
-  <h1>DPD · Prueba PaddleOCR</h1>
-  <p>Solo para comparar la calidad del nuevo OCR.</p>
+  <h1>DPD · Prueba Google Vision OCR</h1>
+  <p>Prueba de lectura OCR con Google Cloud Vision.</p>
 </header>
 
 <main>
@@ -114,7 +114,7 @@ async function sendToOCR(file){
   active.classList.remove('loaded');
   active.classList.add('loading');
   active.textContent='LEYENDO…';
-  status('PaddleOCR está leyendo la captura…','loading');
+  status('Google Vision está leyendo la captura…','loading');
 
   const fd=new FormData();
   fd.append('image',file);
@@ -286,7 +286,7 @@ async function useCrop(){
     const active=document.querySelector('.field.active');
     active.classList.remove('loading');
     active.textContent=active.dataset.label;
-    status('No pude conectar con PaddleOCR: '+err.message,'error');
+    status('No pude conectar con Google Vision: '+err.message,'error');
   }finally{
     document.getElementById('cameraInput').value='';
     sourceImg=null;

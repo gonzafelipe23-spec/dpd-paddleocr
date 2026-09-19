@@ -1,12 +1,12 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from paddleocr import PaddleOCR
-from PIL import Image
-import numpy as np
-import io, re, os
+import base64
+import httpx
+import os
+import re
 
-app = FastAPI(title="DPD PaddleOCR")
+app = FastAPI(title="DPD Google Vision OCR")
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,14 +16,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Spanish OCR. PaddleOCR downloads its official models on first start.
-ocr = PaddleOCR(
-    lang="es",
-    ocr_version="PP-OCRv6",
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-)
+VISION_API_KEY = os.getenv("GOOGLE_VISION_API_KEY", "").strip()
+VISION_URL = "https://vision.googleapis.com/v1/images:annotate"
 
 def normalize_text(text):
     return " ".join(str(text or "").replace("\r", " ").replace("\n", " ").split()).strip()
@@ -32,21 +26,21 @@ def clean_field(text, field):
     t = normalize_text(text)
 
     if field == "numero":
-        t = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
+        t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
         groups = re.findall(r"\d+(?:[-_/]\d+)*", t)
         if groups:
-            return max(groups, key=lambda x: len(re.sub(r"\D","",x)))
+            return max(groups, key=lambda x: len(re.sub(r"\D", "", x)))
         return t
 
     if field == "proceso":
-        t = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
+        t = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
         groups = re.findall(r"\d{5,}", t)
         if groups:
             return max(groups, key=len)
         return t
 
     if field == "fecha":
-        t2 = t.replace("O","0").replace("o","0").replace("I","1").replace("l","1")
+        t2 = t.replace("O", "0").replace("o", "0").replace("I", "1").replace("l", "1")
         m = re.search(r"(\d{1,2})[./\-\s](\d{1,2})[./\-\s](\d{2,4})", t2)
         if m:
             d, mo, y = m.groups()
@@ -57,84 +51,93 @@ def clean_field(text, field):
 
     return t
 
-def extract_result(res):
-    data = None
-
-    # PaddleOCR result objects expose a json property in v3.x.
-    try:
-        data = res.json
-        if callable(data):
-            data = data()
-    except Exception:
-        data = None
-
-    if not isinstance(data, dict):
-        try:
-            data = res.to_dict()
-        except Exception:
-            data = {}
-
-    if "res" in data and isinstance(data["res"], dict):
-        data = data["res"]
-
-    texts = data.get("rec_texts", []) if isinstance(data, dict) else []
-    scores = data.get("rec_scores", []) if isinstance(data, dict) else []
-
-    texts = [str(x) for x in texts if str(x).strip()]
-    numeric_scores = []
-    try:
-        numeric_scores = [float(x) for x in list(scores)]
-    except Exception:
-        numeric_scores = []
-
-    return texts, numeric_scores
-
 @app.get("/")
 def root():
     return FileResponse("index.html")
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "PaddleOCR", "lang": "es"}
+    return {
+        "ok": True,
+        "engine": "Google Cloud Vision",
+        "api_key_configured": bool(VISION_API_KEY),
+    }
 
 @app.post("/ocr")
 async def run_ocr(
     image: UploadFile = File(...),
     field: str = Form("texto")
 ):
+    if not VISION_API_KEY:
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error": "Falta configurar GOOGLE_VISION_API_KEY en Render."}
+        )
+
     try:
         raw = await image.read()
-        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        if not raw:
+            return JSONResponse(
+                status_code=400,
+                content={"ok": False, "error": "La imagen está vacía."}
+            )
 
-        # Upscale small crops because OCR usually improves with larger glyphs.
-        w, h = img.size
-        if max(w, h) < 1600:
-            scale = min(3.0, 1600 / max(w, h))
-            img = img.resize((max(1,int(w*scale)), max(1,int(h*scale))))
+        encoded = base64.b64encode(raw).decode("utf-8")
 
-        arr = np.array(img)
-        results = ocr.predict(arr)
+        payload = {
+            "requests": [
+                {
+                    "image": {"content": encoded},
+                    "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
+                    "imageContext": {"languageHints": ["es"]},
+                }
+            ]
+        }
 
-        all_texts = []
-        all_scores = []
-        for res in results:
-            texts, scores = extract_result(res)
-            all_texts.extend(texts)
-            all_scores.extend(scores)
+        async with httpx.AsyncClient(timeout=45.0) as client:
+            response = await client.post(
+                VISION_URL,
+                params={"key": VISION_API_KEY},
+                json=payload,
+            )
 
-        raw_text = normalize_text(" ".join(all_texts))
+        data = response.json()
+
+        if response.status_code >= 400:
+            message = (
+                data.get("error", {}).get("message")
+                if isinstance(data, dict)
+                else None
+            )
+            raise RuntimeError(message or f"Google Vision respondió HTTP {response.status_code}")
+
+        responses = data.get("responses", [])
+        if not responses:
+            raise RuntimeError("Google Vision no devolvió una respuesta OCR.")
+
+        first = responses[0]
+        if first.get("error"):
+            raise RuntimeError(first["error"].get("message", "Error de Google Vision"))
+
+        raw_text = ""
+        full = first.get("fullTextAnnotation", {})
+        if isinstance(full, dict):
+            raw_text = full.get("text", "") or ""
+
+        if not raw_text:
+            annotations = first.get("textAnnotations", [])
+            if annotations:
+                raw_text = annotations[0].get("description", "") or ""
+
+        raw_text = normalize_text(raw_text)
         value = clean_field(raw_text, field)
-
-        confidence = None
-        if all_scores:
-            confidence = round(sum(all_scores) / len(all_scores) * 100, 1)
 
         return {
             "ok": True,
             "field": field,
             "value": value,
             "raw": raw_text,
-            "confidence": confidence,
+            "confidence": None,
         }
 
     except Exception as e:
